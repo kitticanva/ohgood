@@ -1,0 +1,288 @@
+<?php
+class Api
+{
+    /** API URL */
+    public $api_url = 'https://bee-th.com/api/v2';
+
+    /** Your API key */
+    public $api_key = '';
+
+    /** Add order */
+    public function order($data)
+    {
+        $post = array_merge(['key' => $this->api_key, 'action' => 'add'], $data);
+        return json_decode((string)$this->connect($post));
+    }
+
+    /** Get order status  */
+    public function status($order_id)
+    {
+        return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'status',
+                'order' => $order_id
+            ])
+        );
+    }
+
+    /** Get orders status */
+    public function multiStatus($order_ids)
+    {
+        return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'status',
+                'orders' => implode(",", (array)$order_ids)
+            ])
+        );
+    }
+
+    /** Get services */
+    public function services()
+    {
+        return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'services',
+            ])
+        );
+    }
+
+    /** Refill order */
+    public function refill(int $orderId)
+    {
+        return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'refill',
+                'order' => $orderId,
+            ])
+        );
+    }
+
+    /** Refill orders */
+    public function multiRefill(array $orderIds)
+    {
+        return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'refill',
+                'orders' => implode(',', $orderIds),
+            ]),
+            true,
+        );
+    }
+
+    /** Get refill status */
+    public function refillStatus(int $refillId)
+    {
+         return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'refill_status',
+                'refill' => $refillId,
+            ])
+        );
+    }
+
+    /** Get refill statuses */
+    public function multiRefillStatus(array $refillIds)
+    {
+         return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'refill_status',
+                'refills' => implode(',', $refillIds),
+            ]),
+            true,
+        );
+    }
+
+    /** Cancel orders */
+    public function cancel(array $orderIds)
+    {
+        return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'cancel',
+                'orders' => implode(',', $orderIds),
+            ]),
+            true,
+        );
+    }
+
+    /** Get balance */
+    public function balance()
+    {
+        return json_decode(
+            $this->connect([
+                'key' => $this->api_key,
+                'action' => 'balance',
+            ])
+        );
+    }
+
+    private function connect($post)
+    {
+        $_post = [];
+        if (is_array($post)) {
+            foreach ($post as $name => $value) {
+                $_post[] = $name . '=' . urlencode($value);
+            }
+        }
+
+        $ch = curl_init($this->api_url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_HEADER, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+
+        if (is_array($post)) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, join('&', $_post));
+        }
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/4.0 (compatible; MSIE 5.01; Windows NT 5.0)');
+        $result = curl_exec($ch);
+        if (curl_errno($ch) != 0 && empty($result)) {
+            $result = false;
+        }
+        curl_close($ch);
+        return $result;
+    }
+}
+
+// Examples
+
+$api = new Api();
+
+$services = $api->services(); # Return all services
+
+$balance = $api->balance(); # Return user balance
+
+// Add order
+
+$order = $api->order(['service' => 1, 'link' => 'http://example.com/test', 'quantity' => 100, 'runs' => 2, 'interval' => 5]); # Default
+
+$order = $api->order(['service' => 1, 'link' => 'http://example.com/test', 'comments' => "good pic\ngreat photo\n:)\n;)"]); # Custom Comments
+
+
+$status = $api->status($order->order); # Return status, charge, remains, start count, currency
+
+$statuses = $api->multiStatus([1, 2, 3]); # Return orders status, charge, remains, start count, currency
+$refill = (array) $api->multiRefill([1, 2]);
+$refillIds = array_column($refill, 'refill');
+if ($refillIds) {
+    $refillStatuses = $api->multiRefillStatus($refillIds);
+}
+
+
+
+[
+    {
+        "service": 1,
+        "name": "Followers",
+        "type": "Default",
+        "category": "First Category",
+        "rate": "0.90",
+        "min": "50",
+        "max": "10000",
+        "refill": true,
+        "cancel": true
+    },
+    {
+        "service": 2,
+        "name": "Comments",
+        "type": "Custom Comments",
+        "category": "Second Category",
+        "rate": "8",
+        "min": "10",
+        "max": "1500",
+        "refill": false,
+        "cancel": true
+    }
+]
+{
+    "order": 23501
+}
+{
+    "charge": "0.27819",
+    "start_count": "3572",
+    "status": "Partial",
+    "remains": "157",
+    "currency": "USD"
+}
+{
+    "1": {
+        "charge": "0.27819",
+        "start_count": "3572",
+        "status": "Partial",
+        "remains": "157",
+        "currency": "USD"
+    },
+    "10": {
+        "error": "Incorrect order ID"
+    },
+    "100": {
+        "charge": "1.44219",
+        "start_count": "234",
+        "status": "In progress",
+        "remains": "10",
+        "currency": "USD"
+    }
+}
+{
+    "refill": "1"
+}
+[
+    {
+        "order": 1,
+        "refill": 1
+    },
+    {
+        "order": 2,
+        "refill": 2
+    },
+    {
+        "order": 3,
+        "refill": {
+            "error": "Incorrect order ID"
+        }
+    }
+]
+{
+    "status": "Completed"
+}
+[
+    {
+        "refill": 1,
+        "status": "Completed"
+    },
+    {
+        "refill": 2,
+        "status": "Rejected"
+    },
+    {
+        "refill": 3,
+        "status": {
+            "error": "Refill not found"
+        }
+    }
+]
+[
+    {
+        "order": 9,
+        "cancel": {
+            "error": "Incorrect order ID"
+        }
+    },
+    {
+        "order": 2,
+        "cancel": 1
+    }
+]
+{
+    "balance": "100.84292",
+    "currency": "USD"
+}
